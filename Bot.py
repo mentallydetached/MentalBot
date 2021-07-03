@@ -1,17 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[ ]:
-
-
-# !pip install discord
-# !pip uninstall jthon
-
-
-# In[1]:
-
-
-# Import Stack
 import discord
 import jthon
 from discord.ext import commands
@@ -20,10 +6,6 @@ import os
 from discord.ext.commands import has_permissions
 from discord.utils import get
 import discord.abc
-
-
-# In[8]:
-
 
 
 class MyHelpCommand(commands.MinimalHelpCommand):
@@ -73,10 +55,3 @@ async def shutdown(ctx):
 automatic_cog_load()
 
 bot.run(token)
-
-
-# In[ ]:
-
-
-
-
