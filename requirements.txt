@@ -1,0 +1,5 @@
+discord
+simpletransformers
+matplotlib
+pandas
+torch
