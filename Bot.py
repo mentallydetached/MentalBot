@@ -41,8 +41,11 @@ class MyHelpCommand(commands.MinimalHelpCommand):
             e.description += page
         await destination.send(embed=e)
 
+#################
+# Variable Defs #
+#################
 
-# Variable Defs
+
 help_command = commands.DefaultHelpCommand(no_category='Other Commands')
 with open('config.json') as json_file:
     config = json.load(json_file)
