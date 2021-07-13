@@ -1,5 +1,3 @@
-
-# Import Stack
 import discord
 import requests
 import json
@@ -41,10 +39,10 @@ class MyHelpCommand(commands.MinimalHelpCommand):
             e.description += page
         await destination.send(embed=e)
 
+
 #################
 # Variable Defs #
 #################
-
 
 help_command = commands.DefaultHelpCommand(no_category='Other Commands')
 with open('config.json') as json_file:
