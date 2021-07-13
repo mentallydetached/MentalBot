@@ -12,7 +12,7 @@ class Images(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(aliases=["m", "randommeme", "random_meme", "memes"])
+    @commands.command(aliases=["m", "randommeme", "random_meme", "meme"])
     async def memes(self, ctx):
         """Fulfills your life with a random meme."""
         await ctx.send(file=discord.File(random.choice(memePics)))
