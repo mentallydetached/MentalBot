@@ -9,6 +9,7 @@ from datetime import date
 import os
 import discord
 from pathlib import Path
+from PIL import Image
 
 
 with open('config.json') as json_file:
@@ -32,14 +33,30 @@ class Stocks(commands.Cog):
     ############################################################################
 
     @commands.command(name='stock', aliases=['s', 'stocks', 'get_stock', 'get_stocks'])
+    @commands.cooldown(1, 5, commands.BucketType.guild)
     async def get_stock(self, message_or_context):
-        """Performs a search and creates charts for the latest stock data, news, and sentiment for a given stock (GME only for now)."""
+        """Performs a search and creates charts for the latest stock data, news, and sentiment for a given stock."""
 
         # If passed a discord.Context object, get the message from that object.
         if isinstance(message_or_context, commands.context.Context):
             message = message_or_context.message
         else:
             message = message_or_context
+
+        # Get search term from message content (if present)
+        search_term = message.content
+
+        # If the message does not start with the ! prefix or contains more than 1 space, set search_term to blank value
+        if len(search_term.split(' ')) > 2 or not search_term.startswith('!'):
+            search_term = ''
+        else:
+            search_term = search_term.replace(search_term.split(' ', 1)[0], '')
+        search_term = search_term.strip()
+        search_term = search_term.upper()
+
+        # Set a default search_term if one was not provided
+        if search_term == '':
+            search_term = 'GME'
 
         # Get channel id from the message context
         channelID = message.channel.id
@@ -48,10 +65,10 @@ class Stocks(commands.Cog):
         chrt_bg_color = '#E7E9ED'
 
         # Set varaibles for chart images and data
-        chrt_rt = f'{tmp_dir}{channelID}{realtime_chart_image}'
-        chrt_sentiment = f'{tmp_dir}{channelID}{sentiment_chart_image}'
-        json_news = f'{tmp_dir}{channelID}{latest_news_file}'
-        json_sentiment = f'{tmp_dir}{channelID}{sentiment_file}'
+        chrt_rt = f'{tmp_dir}{channelID}{search_term}{realtime_chart_image}'
+        chrt_sentiment = f'{tmp_dir}{channelID}{search_term}{sentiment_chart_image}'
+        json_news = f'{tmp_dir}{channelID}{search_term}{latest_news_file}'
+        json_sentiment = f'{tmp_dir}{channelID}{search_term}{sentiment_file}'
 
         # If the file exists, delete it
         if os.path.isfile(chrt_rt):
@@ -61,8 +78,11 @@ class Stocks(commands.Cog):
 
         res = None
         res = requests.get(
-            f"https://api.twelvedata.com/time_series?symbol=GME&interval=5min&apikey={twelveKey}").json()
+            f"https://api.twelvedata.com/time_series?symbol={search_term}&interval=5min&apikey={twelveKey}").json()
         if len(res) > 0:
+            if res.get('status') == 'error':
+                await message.channel.send(f"```! Error: Unable to find '{search_term}'. Please try a different search term or try again later.```")
+                return
             data = pd.DataFrame(res['values'])
             data["datetime"] = pd.to_datetime(data["datetime"])
             data["close"] = pd.to_numeric(data["close"])
@@ -71,6 +91,17 @@ class Stocks(commands.Cog):
                 date.today().year, date.today().month, date.today().day)]
             if len(data) > 0:
                 _, ax = pyplot.subplots(facecolor=chrt_bg_color)
+
+                # Perform API call to get stock image URL
+                logo = requests.get(
+                    f"https://www.styvio.com/api/{search_term}").json()['logoURL']
+                if not logo:
+                    logo = "https://cdn.discordapp.com/avatars/681652927370362920/ce20405193570c8bfdc6c4a1245d970a.webp?size=128"
+                # Convert the logo URL to a PIL image and resize
+                logo_img = Image.open(requests.get(logo, stream=True).raw)
+                logo_img.thumbnail((70, 70))
+                # Add stock logo to the bottom left of the figure with a fixed width and height
+                pyplot.figimage(logo_img, xo=0, yo=0, alpha=0.5)
                 ay = data.plot(
                     x='datetime',
                     y='close',
@@ -120,11 +151,11 @@ class Stocks(commands.Cog):
                 ay.zorder = 3
                 pyplot.savefig(chrt_rt)
                 vol = requests.get(
-                    f"https://api.twelvedata.com/time_series?symbol=GME&interval=1day&apikey={twelveKey}").json()
+                    f"https://api.twelvedata.com/time_series?symbol={search_term}&interval=1day&apikey={twelveKey}").json()
                 await message.channel.send(f"Current Price: ${round(float(res['values'][0]['close']),2)}  |  Volume: {int(vol['values'][0]['volume']):,}", file=discord.File(chrt_rt))
 
         res = None
-        res = requests.get("https://www.styvio.com/api/gme").json()
+        res = requests.get(f"https://www.styvio.com/api/{search_term}").json()
         if len(res) > 0:
             if Path(json_news).is_file():
                 with open(json_news) as json_file:
@@ -138,7 +169,8 @@ class Stocks(commands.Cog):
                     await message.channel.send(f"({res['newsDate' + str(i)].strip()}) {res['newsSource' + str(i)].strip()} said \"{res['newsArticle' + str(i)]}\".")
 
         res = None
-        res = requests.get("https://www.styvio.com/api/sentiment/gme").json()
+        res = requests.get(
+            f"https://www.styvio.com/api/sentiment/{search_term}").json()
         if len(res) > 0:
             if Path(json_sentiment).is_file():
                 with open(json_sentiment) as json_file:
@@ -151,10 +183,12 @@ class Stocks(commands.Cog):
                 df = pd.DataFrame([[res['stockTwitsPercentBullish'], res['stockTwitsPercentNeutral'], res['stockTwitsPercentBearish'],
                                     res['totalSentiment']]], columns=['Bullish', 'Neutral', 'Bearish', 'Sentiment'])
                 _, ax = pyplot.subplots(facecolor=chrt_bg_color)
+                # Add stock logo to the bottom left of the chart
+                pyplot.figimage(logo_img, 0, 0, alpha=1)
                 ax = df.plot(
                     kind='bar',
                     stacked=True,
-                    title=f"GME Sentiment: {df['Sentiment'].item()}",
+                    title=f"{search_term} Sentiment: {df['Sentiment'].item()}",
                     color=['#59a96a', (0, 0, 0, 0.5), '#f71735'],
                     ax=ax
                 )

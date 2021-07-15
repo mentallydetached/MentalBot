@@ -115,8 +115,8 @@ async def on_message(message):
     ################
     # Stock prices #
     ################
-    match_percent = await bot.loop.run_in_executor(None, checkSentenceMatch, "How are gamestop stocks looking or GME stocks doing?", message.content)
-    if match_percent > 70:
+    match_percent = await bot.loop.run_in_executor(None, checkSentenceMatch, "How are gamestop stocks looking or GME stocks doing or gamestops stonks?", message.content)
+    if match_percent > 75:
         context = await bot.get_context(message)
         await bot.get_command('stock').callback(context, message)
 
