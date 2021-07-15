@@ -76,6 +76,7 @@ class Stocks(commands.Cog):
         if os.path.isfile(chrt_sentiment):
             os.remove(chrt_sentiment)
 
+        logo = None
         res = None
         res = requests.get(
             f"https://api.twelvedata.com/time_series?symbol={search_term}&interval=5min&apikey={twelveKey}").json()
@@ -90,18 +91,24 @@ class Stocks(commands.Cog):
             data = data[data['datetime'] > pd.Timestamp(
                 date.today().year, date.today().month, date.today().day)]
             if len(data) > 0:
-                _, ax = pyplot.subplots(facecolor=chrt_bg_color)
-
                 # Perform API call to get stock image URL
-                logo = requests.get(
-                    f"https://www.styvio.com/api/{search_term}").json()['logoURL']
+                try:
+                    logo = requests.get(
+                        f"https://www.styvio.com/api/{search_term}").json()['logoURL']
+                except:
+                    pass
                 if not logo:
                     logo = "https://cdn.discordapp.com/avatars/681652927370362920/ce20405193570c8bfdc6c4a1245d970a.webp?size=128"
+
                 # Convert the logo URL to a PIL image and resize
                 logo_img = Image.open(requests.get(logo, stream=True).raw)
                 logo_img.thumbnail((70, 70))
+
+                _, ax = pyplot.subplots(facecolor=chrt_bg_color)
+
                 # Add stock logo to the bottom left of the figure with a fixed width and height
                 pyplot.figimage(logo_img, xo=0, yo=0, alpha=0.5)
+
                 ay = data.plot(
                     x='datetime',
                     y='close',
@@ -180,11 +187,28 @@ class Stocks(commands.Cog):
             with open(json_sentiment, 'w') as outfile:
                 json.dump(res, outfile)
             if res != old_res:
+
+                if not logo:
+                    # Perform API call to get stock image URL
+                    try:
+                        logo = requests.get(
+                            f"https://www.styvio.com/api/{search_term}").json()['logoURL']
+                    except:
+                        pass
+                    if not logo:
+                        logo = "https://cdn.discordapp.com/avatars/681652927370362920/ce20405193570c8bfdc6c4a1245d970a.webp?size=128"
+
+                # Convert the logo URL to a PIL image and resize
+                logo_img = Image.open(requests.get(logo, stream=True).raw)
+                logo_img.thumbnail((70, 70))
+
                 df = pd.DataFrame([[res['stockTwitsPercentBullish'], res['stockTwitsPercentNeutral'], res['stockTwitsPercentBearish'],
                                     res['totalSentiment']]], columns=['Bullish', 'Neutral', 'Bearish', 'Sentiment'])
                 _, ax = pyplot.subplots(facecolor=chrt_bg_color)
+
                 # Add stock logo to the bottom left of the chart
-                pyplot.figimage(logo_img, 0, 0, alpha=1)
+                pyplot.figimage(logo_img, 0, 0, alpha=.5)
+
                 ax = df.plot(
                     kind='bar',
                     stacked=True,
