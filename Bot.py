@@ -5,6 +5,7 @@ import os
 import discord.abc
 from simpletransformers.t5 import T5Model
 
+
 model_args = {
     "use_cuda": False,
     "silent": True,
@@ -40,6 +41,7 @@ with open('config.json') as json_file:
 token = str(config.get("token"))
 twelveKey = str(config.get("twelveKey"))
 newsKey = str(config.get("newsKey"))
+
 
 bot = commands.Bot(
     command_prefix=commands.when_mentioned_or('!'),
@@ -119,6 +121,14 @@ async def on_message(message):
     if match_percent > 75:
         context = await bot.get_context(message)
         await bot.get_command('stock').callback(context, message)
+
+    ########################################
+    # Check if image was posted from human #
+    ########################################
+    if message.attachments and message.author.bot is False:
+        context = await bot.get_context(message)
+        await bot.get_command('look_in_image_for_specific_content').callback(context, message)
+
 
 automatic_cog_load()
 
