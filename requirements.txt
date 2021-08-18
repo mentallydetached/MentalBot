@@ -3,3 +3,6 @@ simpletransformers
 matplotlib
 pandas
 torch
+pytesseract
+yfinance
+alpha_vantage

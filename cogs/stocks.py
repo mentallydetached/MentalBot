@@ -4,18 +4,20 @@ import json
 from matplotlib import pyplot
 import matplotlib.ticker as ticker
 import matplotlib.patheffects as PathEffects
+import matplotlib.dates as mdates
 import pandas as pd
 from datetime import date
 import os
 import discord
 from pathlib import Path
 from PIL import Image
-
+import yfinance
+from alpha_vantage.timeseries import TimeSeries
 
 with open('config.json') as json_file:
     config = json.load(json_file)
 # pulls the bot tokens from the hidden config file
-twelveKey = str(config.get("twelveKey"))
+alphaKey = str(config.get("alphaKey"))
 
 tmp_dir = 'cogs/tmp/'
 sentiment_file = 'stock_sentiment.json'
@@ -23,13 +25,17 @@ latest_news_file = 'stock_news.json'
 realtime_chart_image = 'rt.png'
 sentiment_chart_image = 'chrt.png'
 
+# If the folder doesn't exist, create it
+if not os.path.exists(tmp_dir):
+    os.makedirs(tmp_dir)
+
 
 class Stocks(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
     ############################################################################
-    # Send a request to the public stock API and returns the latest stock data #
+    # Send a request to the yahoo stock API and returns the latest stock data  #
     ############################################################################
 
     @commands.command(name='stock', aliases=['s', 'stocks', 'get_stock', 'get_stocks'])
@@ -42,6 +48,9 @@ class Stocks(commands.Cog):
             message = message_or_context.message
         else:
             message = message_or_context
+
+        # Grab last image posted in channel
+        await message.channel.trigger_typing()
 
         # Get search term from message content (if present)
         search_term = message.content
@@ -78,70 +87,89 @@ class Stocks(commands.Cog):
 
         logo = None
         res = None
-        res = requests.get(
-            f"https://api.twelvedata.com/time_series?symbol={search_term}&interval=5min&apikey={twelveKey}").json()
-        if len(res) > 0:
-            if res.get('status') == 'error':
-                await message.channel.send(f"```! Error: Unable to find '{search_term}'. Please try a different search term or try again later.```")
-                return
-            data = pd.DataFrame(res['values'])
-            data["datetime"] = pd.to_datetime(data["datetime"])
-            data["close"] = pd.to_numeric(data["close"])
-            data["volume"] = pd.to_numeric(data["volume"])
-            data = data[data['datetime'] > pd.Timestamp(
-                date.today().year, date.today().month, date.today().day)]
-            if len(data) > 0:
-                # Perform API call to get stock image URL
-                try:
-                    logo = requests.get(
-                        f"https://www.styvio.com/api/{search_term}").json()['logoURL']
-                except:
-                    pass
-                if not logo:
-                    logo = "https://cdn.discordapp.com/avatars/681652927370362920/ce20405193570c8bfdc6c4a1245d970a.webp?size=128"
 
-                # Convert the logo URL to a PIL image and resize
-                logo_img = Image.open(requests.get(logo, stream=True).raw)
-                logo_img.thumbnail((70, 70))
+        # Pull stocks from Yahoo Stocks API
+        res = yfinance.Ticker(search_term)
 
-                _, ax = pyplot.subplots(facecolor=chrt_bg_color)
+        # If the stock data is not found, return an error message
+        if res is None:
+            await message.channel.send(f'An error occurred: Could not find stock data for {search_term}.')
+            return
+        # If the stock data is found, create charts
+        else:
+            # Create a list of the stock data
+            stock_data = res.info
+            current_price = stock_data['currentPrice']
+            short_ratio = stock_data['shortRatio']
+            current_high = stock_data['dayHigh']
+            current_low = stock_data['dayLow']
+            total_volume = stock_data['volume']
 
-                # Add stock logo to the bottom left of the figure with a fixed width and height
-                pyplot.figimage(logo_img, xo=0, yo=0, alpha=0.5)
+            # Get logo
+            logo = stock_data['logo_url']
+            if not logo:
+                logo = "https://cdn.discordapp.com/avatars/681652927370362920/ce20405193570c8bfdc6c4a1245d970a.webp?size=128"
 
-                ay = data.plot(
-                    x='datetime',
-                    y='close',
+            # Convert the logo URL to a PIL image and resize
+            logo_img = Image.open(requests.get(logo, stream=True).raw)
+            logo_img.thumbnail((65, 65))
+            plt, ax = pyplot.subplots(facecolor=chrt_bg_color)
+
+            # Add stock logo to the bottom left of the figure with a fixed width and height
+            pyplot.figimage(logo_img, xo=0, yo=0, alpha=0.6)
+
+            # Add the short_ratio to the bottom right of the figure
+            plt.text(0.99, 0.01, f'Short Ratio: {short_ratio}', color='black', fontsize=12, verticalalignment='bottom', horizontalalignment='right')
+
+            # Add a ticker with the rest of the stock data to the top of the figure
+            plt.text(0.01, 0.99, f'Curr Price {current_price}   Day Low {current_low}   Day High {current_high}   Total Vol {total_volume}', color='black', fontsize=9, verticalalignment='top', horizontalalignment='left')
+
+            # Get the intraday stock data from the Alpha Vantage API
+            ts = TimeSeries(key=alphaKey, output_format='pandas')
+            df, meta_data = ts.get_intraday(symbol=search_term,interval='1min', outputsize='compact')
+            df.reset_index(inplace=True) 
+            df['date'] = pd.to_datetime(df['date'])
+            df["4. close"] = pd.to_numeric(df["4. close"])
+            df["5. volume"] = pd.to_numeric(df["5. volume"])
+            df = df[df['date'] > pd.Timestamp(date.today().year, date.today().month, date.today().day)]
+
+            # Grab only the latest 50 records
+            df = df.head(50)
+
+            if len(df) > 0:
+                ay = df.plot(
+                    x='date',
+                    y='4. close',
                     kind='line',
                     legend=False,
-                    title=f"Realtime Stock for {res['meta']['symbol']}",
+                    title=f"{search_term.upper()} Stock as of {df['date'].head(1).item().strftime('%I:%M %p')}",
                     ax=ax
                 )
                 old_val = old_direction = direction = None
                 i = 0
-                for _, val in data.iterrows():
+                for _, val in df.iterrows():
                     if not old_val and not direction:
                         text = pyplot.text(
-                            val['datetime'], val['close'], "$" + str(round(val['close'], 1)), ha='center', size=8)
+                            val['date'], val['4. close'], "$" + str(round(val['4. close'], 1)), ha='center', size=8)
                         text.set_path_effects(
                             [PathEffects.withStroke(linewidth=3, foreground='w')])
                     i += 1
                     if old_val:
-                        direction = "up" if val['close'] - \
+                        direction = "up" if val['4. close'] - \
                             old_val > 0 else "down"
                     if direction:
                         if i > 3:
                             if old_direction != direction:
                                 text = pyplot.text(
-                                    val['datetime'], val['close'], "$" + str(round(val['close'], 1)), ha='center', size=8)
+                                    val['date'], val['4. close'], "$" + str(round(val['4. close'], 1)), ha='center', size=8)
                                 text.set_path_effects(
                                     [PathEffects.withStroke(linewidth=3, foreground='w')])
                                 i = 0
                         old_direction = direction
-                    old_val = val['close']
-                az = data.plot(
-                    x='datetime',
-                    y='volume',
+                    old_val = val['4. close']
+                az = df.plot(
+                    x='date',
+                    y='5. volume',
                     secondary_y=True,
                     legend=False,
                     ax=ax,
@@ -149,17 +177,21 @@ class Stocks(commands.Cog):
                     linewidth=5
                 )
                 ax.axes.set_facecolor((0, 0, 0, 0.03))
-                ax.right_ax.yaxis.set_major_formatter(
-                    ticker.FormatStrFormatter("%d"))
+                # Format the datetime in the x-axis to only show timestamp as 12 hour time
+                ax.xaxis.set_major_formatter(mdates.DateFormatter('%I:%M %p'))
                 ax.yaxis.set_major_formatter(
                     ticker.FormatStrFormatter("$%.1f"))
                 ax.xaxis.get_label().set_visible(False)
                 az.zorder = 2
                 ay.zorder = 3
                 pyplot.savefig(chrt_rt)
-                vol = requests.get(
-                    f"https://api.twelvedata.com/time_series?symbol={search_term}&interval=1day&apikey={twelveKey}").json()
-                await message.channel.send(f"Current Price: ${round(float(res['values'][0]['close']),2)}  |  Volume: {int(vol['values'][0]['volume']):,}", file=discord.File(chrt_rt))
+                pyplot.close()
+            else:
+                await message.channel.send(f'An error occurred: No data found for {search_term}.')
+                return
+
+
+            await message.channel.send(f"Current Price: ${round(float(current_price),2)}  |  Volume: {int(total_volume):,}", file=discord.File(chrt_rt))
 
         res = None
         res = requests.get(f"https://www.styvio.com/api/{search_term}").json()
@@ -200,7 +232,7 @@ class Stocks(commands.Cog):
 
                 # Convert the logo URL to a PIL image and resize
                 logo_img = Image.open(requests.get(logo, stream=True).raw)
-                logo_img.thumbnail((70, 70))
+                logo_img.thumbnail((65, 65))
 
                 df = pd.DataFrame([[res['stockTwitsPercentBullish'], res['stockTwitsPercentNeutral'], res['stockTwitsPercentBearish'],
                                     res['totalSentiment']]], columns=['Bullish', 'Neutral', 'Bearish', 'Sentiment'])
