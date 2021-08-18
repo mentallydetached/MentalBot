@@ -114,18 +114,31 @@ class OCR(commands.Cog):
 
         print(ocr_data)
 
-        # Check if any of the following words are in the image:
-        # 'GME', 'MOASS', 'Diamond hands', 'Family', 'Fast and the furious', 'Covid-19', 'Coronavirus', 'Vaccine', 'Vaccinate', 'Vax'
-        if any(word in ocr_data for word in ['covid-19', 'coronavirus', 'vaccine', 'vaccinate', 'vax']):
+        # Check if specific words are in the image that warrant a response:
+
+        # Covid-19 related words and phrases
+        if any(word in ocr_data for word in ['covid-19','coronavirus','vaccine','vaccinate','vax','delta variant','covid','covid variant']):
             await message.channel.send('Man... f*ck covid.')
             return
         
-        if any(word in ocr_data for word in ['family', 'fast and the furious']):
+        # Fast and the furious related words and phrases
+        if any(word in ocr_data for word in ['family','fast and the furious','dominic toretto','mia toretto','fast and furious','too fast too furious','flying car']):
             await message.channel.send(random.choice(['If I win, I take the cash, and I take the respect.','Now you owe me a ten second car.','Nothing really maters unless you have a code.','Nobody else. Just you and me, once and for all.','We do what we do best. We improvise.', 'The world has a way of changing, but there\'s some thing that always stay the same.', 'The most important thing in life will always be the people in this room. Right here, right now.','You\'ve got the best crew in the world standing right in front of you, give them a reason to stay.', 'I live my life a quarter mile at a time.']))
             return
         
-        if any(word in ocr_data for word in ['gme', 'moass', 'diamond hands','hodl','hodlin','gamestop']):
+        # GME related words and phrases
+        if any(word in ocr_data for word in ['gme','moass','diamond hands','hodl','hodlin','gamestop','hodling','short hedge funds','short hedge fund','stonk']):
             await message.channel.send('💎👐')
+            return
+
+        # Spongebob related words and phrases
+        if any(word in ocr_data for word in ['spongebob','squarepants','patrick star','plankton','squidward','sandy']):
+            await message.channel.send(random.choice(['I\'m ready, I\'m ready.', 'If you believe in yourself, with a tiny pinch of magic all your dreams can come true!','F is for friends who do stuff together!','It\'s not just a boulder, it\'s a rock. 🪨']))
+            return
+
+        # Dragon Ball Z related words and phrases
+        if any(word in ocr_data for word in ['kakarot','goku','vegeta','krillin','trunks','bulma','gohan','frieza','piccolo','dragon ball','yamcha','dbz','mr satan']):
+            await message.channel.send('IT\'S OVER 9,000!!!!!!')
             return
 
 
