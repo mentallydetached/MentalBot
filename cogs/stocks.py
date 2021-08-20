@@ -150,7 +150,7 @@ class Stocks(commands.Cog):
                 df['date'] = df.dt.apply(mdates.date2num)
                 df["close"] = pd.to_numeric(df["c"])
                 df["volume"] = pd.to_numeric(df["v"])
-                df = df[['date','close','volume']]
+                df = df[['date','close','volume']].sort_values(by=['date'], ascending=False)
                 
                 # df = df[df['date'] > pd.Timestamp(date.today().year, date.today().month, date.today().day)]
                 # # Grab only the latest 50 records
@@ -181,7 +181,7 @@ class Stocks(commands.Cog):
                             direction = "up" if val['close'] - \
                                 old_val > 0 else "down"
                         if direction:
-                            if i > 3:
+                            if i > 10:
                                 if old_direction != direction:
                                     text = pyplot.text(
                                         val['date'], val['close'], "$" + str(round(val['close'], 1)), ha='center', size=8)
