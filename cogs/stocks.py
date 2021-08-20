@@ -146,11 +146,12 @@ class Stocks(commands.Cog):
                 if res.get('s') == 'no_data':
                     res = requests.get(f"https://finnhub.io/api/v1/stock/candle?symbol={search_term}&resolution=60&from={sixteen_hours_ago}&to={now_unix}&token={finnKey}").json()
                 df = pd.DataFrame(res)
-                df['date'] = pd.to_datetime(df['t'], unit='s', origin='unix').apply(mdates.date2num)
+                df['dt'] = pd.to_datetime(df['t'], unit='s', origin='unix').dt.tz_localize('utc').dt.tz_convert('US/Central').dt.tz_localize(None)
+                df['date'] = df.dt.apply(mdates.date2num)
                 df["close"] = pd.to_numeric(df["c"])
                 df["volume"] = pd.to_numeric(df["v"])
                 df = df[['date','close','volume']]
-
+                
                 # df = df[df['date'] > pd.Timestamp(date.today().year, date.today().month, date.today().day)]
                 # # Grab only the latest 50 records
                 # df = df.head(50)
