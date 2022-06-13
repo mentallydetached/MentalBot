@@ -14,6 +14,7 @@ from PIL import Image
 import yfinance
 import datetime
 import time
+import plotly.graph_objs as go
 
 with open('config.json') as json_file:
     config = json.load(json_file)
@@ -215,81 +216,6 @@ class Stocks(commands.Cog):
             else:
                 await message.channel.send(f'Current Price: {current_price}        Day Low {current_low}        Day High {current_high}        Volume: {total_volume}')
 
-#         res = None
-#         res = requests.get(f"https://www.styvio.com/api/{search_term}").json()
-#         if len(res) > 0:
-#             if Path(json_news).is_file():
-#                 with open(json_news) as json_file:
-#                     old_res = json.load(json_file)
-#             else:
-#                 old_res = None
-#             with open(json_news, 'w') as outfile:
-#                 json.dump(res, outfile)
-#             for i in range(1, 6):
-#                 if not old_res or res['newsArticle' + str(i)].strip() != old_res['newsArticle' + str(i)].strip():
-#                     await message.channel.send(f"({res['newsDate' + str(i)].strip()}) {res['newsSource' + str(i)].strip()} said \"{res['newsArticle' + str(i)]}\".")
-
-#         res = None
-#         res = requests.get(
-#             f"https://www.styvio.com/api/sentiment/{search_term}").json()
-#         if len(res) > 0:
-#             if Path(json_sentiment).is_file():
-#                 with open(json_sentiment) as json_file:
-#                     old_res = json.load(json_file)
-#             else:
-#                 old_res = None
-#             with open(json_sentiment, 'w') as outfile:
-#                 json.dump(res, outfile)
-#             if res != old_res:
-
-#                 if not logo:
-#                     # Perform API call to get stock image URL
-#                     try:
-#                         logo = requests.get(
-#                             f"https://www.styvio.com/api/{search_term}").json()['logoURL']
-#                     except:
-#                         pass
-#                     if not logo:
-#                         logo = "https://cdn.discordapp.com/avatars/681652927370362920/ce20405193570c8bfdc6c4a1245d970a.webp?size=128"
-
-#                 # Convert the logo URL to a PIL image and resize
-#                 logo_img = Image.open(requests.get(logo, stream=True).raw)
-#                 logo_img.thumbnail((60, 60))
-
-#                 df = pd.DataFrame([[res['stockTwitsPercentBullish'], res['stockTwitsPercentNeutral'], res['stockTwitsPercentBearish'],
-#                                     res['totalSentiment']]], columns=['Bullish', 'Neutral', 'Bearish', 'Sentiment'])
-#                 _, ax = pyplot.subplots(facecolor=chrt_bg_color)
-
-#                 # Add stock logo to the bottom left of the chart
-#                 pyplot.figimage(logo_img, 0, 0, alpha=.5)
-
-#                 ax = df.plot(
-#                     kind='bar',
-#                     stacked=True,
-#                     title=f"{search_term} Sentiment: {df['Sentiment'].item()}",
-#                     color=['#59a96a', (0, 0, 0, 0.5), '#f71735'],
-#                     ax=ax
-#                 )
-#                 df['Neutral'].plot.bar(0, 0, bottom=df['Bullish'], color=(
-#                     0, 0, 0, 0), hatch='//', edgecolor=(0, 0, 0, 0.1), lw=0, ax=ax)
-#                 ax.yaxis.set_major_formatter(ticker.FormatStrFormatter("%d%%"))
-#                 for rect in ax.patches:
-#                     height = rect.get_height()
-#                     width = rect.get_width()
-#                     x = rect.get_x()
-#                     y = rect.get_y()
-#                     label_text = f'{height:.2f}%'
-#                     label_x = x + width / 2
-#                     label_y = y + height / 2
-#                     if height > 0:
-#                         text = ax.text(label_x, label_y, label_text,
-#                                        ha='center', va='center', fontsize=8)
-#                         text.set_path_effects(
-#                             [PathEffects.withStroke(linewidth=3, foreground='w')])
-#                 ax.xaxis.set_visible(False)
-#                 ax.axes.set_facecolor((0, 0, 0, 0.03))
-#                 pyplot.savefig(chrt_sentiment)
-#                 await message.channel.send(file=discord.File(chrt_sentiment))
 
 
     ############################################################################
@@ -347,5 +273,107 @@ class Stocks(commands.Cog):
         total_volume = "{:,}".format(stock_data['volume'])
         await message.channel.send(f'Current Price: {current_price}        Day Low {current_low}        Day High {current_high}        Volume: {total_volume}        Short Ratio: {short_ratio}')
 
+
+    ############################################################################
+    # Send a request to the yahoo stock API and returns the latest stock data  #
+    ############################################################################
+
+    @commands.command(name='stock_candle', aliases=['sc', 'get_stock_candle', 'get_candle_stocks'])
+    @commands.cooldown(1, 5, commands.BucketType.guild)
+    async def stock_candle(self, message_or_context):
+        """Performs a search and creates charts for the latest stock data, news, and sentiment for a given stock."""
+
+        # If passed a discord.Context object, get the message from that object.
+        if isinstance(message_or_context, commands.context.Context):
+            message = message_or_context.message
+        else:
+            message = message_or_context
+
+        # Grab last image posted in channel
+        await message.channel.trigger_typing()
+
+        # Get search term from message content (if present)
+        search_term = message.content
+
+        # If the message does not start with the ! prefix or contains more than 1 space, set search_term to blank value
+        if len(search_term.split(' ')) > 2 or not search_term.startswith('!'):
+            search_term = ''
+        else:
+            search_term = search_term.replace(search_term.split(' ', 1)[0], '')
+        search_term = search_term.strip()
+        search_term = search_term.upper()
+
+        # Set a default search_term if one was not provided
+        if search_term == '':
+            search_term = 'GME'
+
+        # Get channel id from the message context
+        channelID = message.channel.id
+
+        # Set the background color for the charts
+        chrt_bg_color = '#E7E9ED'
+        header_bg_color = '#5f709e'
+
+        # Set varaibles for chart images and data
+        chrt_rt = f'{tmp_dir}{channelID}{search_term}{realtime_chart_image}'
+
+        # If the file exists, delete it
+        if os.path.isfile(chrt_rt):
+            os.remove(chrt_rt)
+        if os.path.isfile(chrt_sentiment):
+            os.remove(chrt_sentiment)
+        
+        #Interval required 1 minute
+        data = yfinance.download(tickers=search_term, period='12h', interval='1m')
+        
+        # If the stock data is not found, return an error message
+        if res is None:
+            await message.channel.send(f'An error occurred: Could not find stock data for {search_term}.')
+            return
+        
+#         fig, ax = pyplot.subplots(facecolor=chrt_bg_color)
+        
+        #declare figure
+        fig = go.Figure()
+
+        #Candlestick
+        fig.add_trace(go.Candlestick(x=data.index,
+                        open=data['Open'],
+                        high=data['High'],
+                        low=data['Low'],
+                        close=data['Close'], 
+                        name='market data'))
+
+        # Add titles
+        fig.update_layout(
+            title=f"{search_term.upper()} live share price evolution",
+            yaxis_title=f"{search_term.upper()} Stock")
+
+        # X-Axes
+        fig.update_xaxes(
+            rangeslider_visible=True,
+            rangeselector=dict(
+                buttons=list([
+                    dict(count=15, label="15m", step="minute", stepmode="backward"),
+                    dict(count=45, label="45m", step="minute", stepmode="backward"),
+                    dict(count=1, label="HTD", step="hour", stepmode="todate"),
+                    dict(count=3, label="3h", step="hour", stepmode="backward"),
+                    dict(step="all")
+                ])
+            )
+        )
+
+        # Add a ticker with the rest of the stock data to the top of the figure
+        fig.text(0.01, 0.99, f'Last {current_price}         Day Low {current_low}         Day High {current_high}         Total Vol {total_volume}', color='white', fontsize=10, verticalalignment='top', horizontalalignment='left')
+
+        fig_width, fig_height = fig.get_size_inches()*fig.dpi
+
+#         fig.show()
+        go.write_image(chrt_rt)
+#         go.close()
+        
+        await message.channel.send(f"Current Price: {current_price}        Volume: {total_volume}", file=discord.File(chrt_rt))
+        
+        
 def setup(bot):
     bot.add_cog(Stocks(bot))
