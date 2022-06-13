@@ -322,7 +322,7 @@ class Stocks(commands.Cog):
             os.remove(chrt_rt)
         
         #Interval required 1 minute
-        data = yfinance.download(tickers=search_term, period='12h', interval='1m')
+        data = yfinance.download(tickers=search_term, period='6h', interval='1m')
         
         # If the stock data is not found, return an error message
         if data is None:
@@ -342,35 +342,12 @@ class Stocks(commands.Cog):
                         close=data['Close'], 
                         name='market data'))
 
-        # Add titles
-        fig.update_layout(
-            title=f"{search_term.upper()} live share price evolution",
-            yaxis_title=f"{search_term.upper()} Stock")
-
-        # X-Axes
-        fig.update_xaxes(
-            rangeslider_visible=True,
-            rangeselector=dict(
-                buttons=list([
-                    dict(count=15, label="15m", step="minute", stepmode="backward"),
-                    dict(count=45, label="45m", step="minute", stepmode="backward"),
-                    dict(count=1, label="HTD", step="hour", stepmode="todate"),
-                    dict(count=3, label="3h", step="hour", stepmode="backward"),
-                    dict(step="all")
-                ])
-            )
-        )
-
-        # Add a ticker with the rest of the stock data to the top of the figure
-#         fig.text(0.01, 0.99, f'Last {current_price}         Day Low {current_low}         Day High {current_high}         Total Vol {total_volume}', color='white', fontsize=10, verticalalignment='top', horizontalalignment='left')
-
-#         fig_width, fig_height = fig.get_size_inches()*fig.dpi
-
-#         fig.show()
-        go.write_image(chrt_rt)
-#         go.close()
+        # Add title
+        fig.update_layout(title=f"{search_term.upper()} live share price evolution")
+        # Export to image
+        fig.write_image(chrt_rt)
         
-        await message.channel.send(f"Current Price: {current_price}        Volume: {total_volume}", file=discord.File(chrt_rt))
+        await message.channel.send(file=discord.File(chrt_rt))
         
         
 def setup(bot):
