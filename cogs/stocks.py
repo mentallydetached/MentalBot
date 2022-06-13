@@ -320,17 +320,17 @@ class Stocks(commands.Cog):
         # If the file exists, delete it
         if os.path.isfile(chrt_rt):
             os.remove(chrt_rt)
-        
+
         #Interval required 1 minute
         data = yfinance.download(tickers=search_term, period='6h', interval='1m')
-        
+
         # If the stock data is not found, return an error message
         if data is None:
             await message.channel.send(f'An error occurred: Could not find stock data for {search_term}.')
             return
-        
+
 #         fig, ax = pyplot.subplots(facecolor=chrt_bg_color)
-        
+
         #declare figure
         fig = go.Figure()
 
@@ -341,14 +341,16 @@ class Stocks(commands.Cog):
                         low=data['Low'],
                         close=data['Close'], 
                         name='market data'))
+        
+        fig.update_layout(xaxis_rangeslider_visible=False)
 
         # Add title
-        fig.update_layout(title=f"{search_term.upper()} live share price evolution")
+        fig.update_layout(title=f"{search_term.upper()} Market Summary")
         # Export to image
         fig.write_image(chrt_rt)
-        
+
         await message.channel.send(file=discord.File(chrt_rt))
-        
-        
+
+
 def setup(bot):
     bot.add_cog(Stocks(bot))
