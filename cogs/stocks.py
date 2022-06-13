@@ -320,14 +320,12 @@ class Stocks(commands.Cog):
         # If the file exists, delete it
         if os.path.isfile(chrt_rt):
             os.remove(chrt_rt)
-        if os.path.isfile(chrt_sentiment):
-            os.remove(chrt_sentiment)
         
         #Interval required 1 minute
         data = yfinance.download(tickers=search_term, period='12h', interval='1m')
         
         # If the stock data is not found, return an error message
-        if res is None:
+        if data is None:
             await message.channel.send(f'An error occurred: Could not find stock data for {search_term}.')
             return
         
@@ -364,9 +362,9 @@ class Stocks(commands.Cog):
         )
 
         # Add a ticker with the rest of the stock data to the top of the figure
-        fig.text(0.01, 0.99, f'Last {current_price}         Day Low {current_low}         Day High {current_high}         Total Vol {total_volume}', color='white', fontsize=10, verticalalignment='top', horizontalalignment='left')
+#         fig.text(0.01, 0.99, f'Last {current_price}         Day Low {current_low}         Day High {current_high}         Total Vol {total_volume}', color='white', fontsize=10, verticalalignment='top', horizontalalignment='left')
 
-        fig_width, fig_height = fig.get_size_inches()*fig.dpi
+#         fig_width, fig_height = fig.get_size_inches()*fig.dpi
 
 #         fig.show()
         go.write_image(chrt_rt)
