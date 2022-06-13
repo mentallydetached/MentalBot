@@ -215,81 +215,81 @@ class Stocks(commands.Cog):
             else:
                 await message.channel.send(f'Current Price: {current_price}        Day Low {current_low}        Day High {current_high}        Volume: {total_volume}')
 
-        res = None
-        res = requests.get(f"https://www.styvio.com/api/{search_term}").json()
-        if len(res) > 0:
-            if Path(json_news).is_file():
-                with open(json_news) as json_file:
-                    old_res = json.load(json_file)
-            else:
-                old_res = None
-            with open(json_news, 'w') as outfile:
-                json.dump(res, outfile)
-            for i in range(1, 6):
-                if not old_res or res['newsArticle' + str(i)].strip() != old_res['newsArticle' + str(i)].strip():
-                    await message.channel.send(f"({res['newsDate' + str(i)].strip()}) {res['newsSource' + str(i)].strip()} said \"{res['newsArticle' + str(i)]}\".")
+#         res = None
+#         res = requests.get(f"https://www.styvio.com/api/{search_term}").json()
+#         if len(res) > 0:
+#             if Path(json_news).is_file():
+#                 with open(json_news) as json_file:
+#                     old_res = json.load(json_file)
+#             else:
+#                 old_res = None
+#             with open(json_news, 'w') as outfile:
+#                 json.dump(res, outfile)
+#             for i in range(1, 6):
+#                 if not old_res or res['newsArticle' + str(i)].strip() != old_res['newsArticle' + str(i)].strip():
+#                     await message.channel.send(f"({res['newsDate' + str(i)].strip()}) {res['newsSource' + str(i)].strip()} said \"{res['newsArticle' + str(i)]}\".")
 
-        res = None
-        res = requests.get(
-            f"https://www.styvio.com/api/sentiment/{search_term}").json()
-        if len(res) > 0:
-            if Path(json_sentiment).is_file():
-                with open(json_sentiment) as json_file:
-                    old_res = json.load(json_file)
-            else:
-                old_res = None
-            with open(json_sentiment, 'w') as outfile:
-                json.dump(res, outfile)
-            if res != old_res:
+#         res = None
+#         res = requests.get(
+#             f"https://www.styvio.com/api/sentiment/{search_term}").json()
+#         if len(res) > 0:
+#             if Path(json_sentiment).is_file():
+#                 with open(json_sentiment) as json_file:
+#                     old_res = json.load(json_file)
+#             else:
+#                 old_res = None
+#             with open(json_sentiment, 'w') as outfile:
+#                 json.dump(res, outfile)
+#             if res != old_res:
 
-                if not logo:
-                    # Perform API call to get stock image URL
-                    try:
-                        logo = requests.get(
-                            f"https://www.styvio.com/api/{search_term}").json()['logoURL']
-                    except:
-                        pass
-                    if not logo:
-                        logo = "https://cdn.discordapp.com/avatars/681652927370362920/ce20405193570c8bfdc6c4a1245d970a.webp?size=128"
+#                 if not logo:
+#                     # Perform API call to get stock image URL
+#                     try:
+#                         logo = requests.get(
+#                             f"https://www.styvio.com/api/{search_term}").json()['logoURL']
+#                     except:
+#                         pass
+#                     if not logo:
+#                         logo = "https://cdn.discordapp.com/avatars/681652927370362920/ce20405193570c8bfdc6c4a1245d970a.webp?size=128"
 
-                # Convert the logo URL to a PIL image and resize
-                logo_img = Image.open(requests.get(logo, stream=True).raw)
-                logo_img.thumbnail((60, 60))
+#                 # Convert the logo URL to a PIL image and resize
+#                 logo_img = Image.open(requests.get(logo, stream=True).raw)
+#                 logo_img.thumbnail((60, 60))
 
-                df = pd.DataFrame([[res['stockTwitsPercentBullish'], res['stockTwitsPercentNeutral'], res['stockTwitsPercentBearish'],
-                                    res['totalSentiment']]], columns=['Bullish', 'Neutral', 'Bearish', 'Sentiment'])
-                _, ax = pyplot.subplots(facecolor=chrt_bg_color)
+#                 df = pd.DataFrame([[res['stockTwitsPercentBullish'], res['stockTwitsPercentNeutral'], res['stockTwitsPercentBearish'],
+#                                     res['totalSentiment']]], columns=['Bullish', 'Neutral', 'Bearish', 'Sentiment'])
+#                 _, ax = pyplot.subplots(facecolor=chrt_bg_color)
 
-                # Add stock logo to the bottom left of the chart
-                pyplot.figimage(logo_img, 0, 0, alpha=.5)
+#                 # Add stock logo to the bottom left of the chart
+#                 pyplot.figimage(logo_img, 0, 0, alpha=.5)
 
-                ax = df.plot(
-                    kind='bar',
-                    stacked=True,
-                    title=f"{search_term} Sentiment: {df['Sentiment'].item()}",
-                    color=['#59a96a', (0, 0, 0, 0.5), '#f71735'],
-                    ax=ax
-                )
-                df['Neutral'].plot.bar(0, 0, bottom=df['Bullish'], color=(
-                    0, 0, 0, 0), hatch='//', edgecolor=(0, 0, 0, 0.1), lw=0, ax=ax)
-                ax.yaxis.set_major_formatter(ticker.FormatStrFormatter("%d%%"))
-                for rect in ax.patches:
-                    height = rect.get_height()
-                    width = rect.get_width()
-                    x = rect.get_x()
-                    y = rect.get_y()
-                    label_text = f'{height:.2f}%'
-                    label_x = x + width / 2
-                    label_y = y + height / 2
-                    if height > 0:
-                        text = ax.text(label_x, label_y, label_text,
-                                       ha='center', va='center', fontsize=8)
-                        text.set_path_effects(
-                            [PathEffects.withStroke(linewidth=3, foreground='w')])
-                ax.xaxis.set_visible(False)
-                ax.axes.set_facecolor((0, 0, 0, 0.03))
-                pyplot.savefig(chrt_sentiment)
-                await message.channel.send(file=discord.File(chrt_sentiment))
+#                 ax = df.plot(
+#                     kind='bar',
+#                     stacked=True,
+#                     title=f"{search_term} Sentiment: {df['Sentiment'].item()}",
+#                     color=['#59a96a', (0, 0, 0, 0.5), '#f71735'],
+#                     ax=ax
+#                 )
+#                 df['Neutral'].plot.bar(0, 0, bottom=df['Bullish'], color=(
+#                     0, 0, 0, 0), hatch='//', edgecolor=(0, 0, 0, 0.1), lw=0, ax=ax)
+#                 ax.yaxis.set_major_formatter(ticker.FormatStrFormatter("%d%%"))
+#                 for rect in ax.patches:
+#                     height = rect.get_height()
+#                     width = rect.get_width()
+#                     x = rect.get_x()
+#                     y = rect.get_y()
+#                     label_text = f'{height:.2f}%'
+#                     label_x = x + width / 2
+#                     label_y = y + height / 2
+#                     if height > 0:
+#                         text = ax.text(label_x, label_y, label_text,
+#                                        ha='center', va='center', fontsize=8)
+#                         text.set_path_effects(
+#                             [PathEffects.withStroke(linewidth=3, foreground='w')])
+#                 ax.xaxis.set_visible(False)
+#                 ax.axes.set_facecolor((0, 0, 0, 0.03))
+#                 pyplot.savefig(chrt_sentiment)
+#                 await message.channel.send(file=discord.File(chrt_sentiment))
 
 
     ############################################################################
